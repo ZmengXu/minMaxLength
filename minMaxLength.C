@@ -68,7 +68,7 @@ Foam::functionObjects::minMaxLength::minMaxLength
 {
     Info<<"criterion = "<<criterion<<endl;
     Info<<"threshold = "<<threshold<<endl;
-    ResultOutPut << "time," << ",minLength" << ",maxLength" << endl;
+    ResultOutPut << "time" << ",minLength" << ",maxLength" << endl;
 }
 
 
