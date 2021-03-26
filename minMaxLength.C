@@ -91,8 +91,8 @@ bool Foam::functionObjects::minMaxLength::execute()
         const volScalarField& field = lookupObject<volScalarField>(fieldName_);
         const scalar field_max = max(field).value();
         Info << "field_max = " << field_max << endl;
-        scalar maxLength = great;
-        scalar minLength = 0;
+        scalar maxLength = 0;
+        scalar minLength = great;
         if (field_max > threshold)
         {
             forAll (field, cellI)
