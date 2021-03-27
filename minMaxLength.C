@@ -26,7 +26,8 @@ License
 #include "minMaxLength.H"
 #include "volFields.H"
 #include "addToRunTimeSelectionTable.H"
-
+#include "IOstreams.H"
+#include "dictionaryEntry.H"
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -48,6 +49,25 @@ namespace functionObjects
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 // useless:
 bool Foam::functionObjects::minMaxLength::calc(){return true;}
+// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+
+void Foam::functionObjects::minMaxLength::writeFileHeader(const label i)
+{
+
+    OFstream& file = this->file();
+
+    writeHeader(file, "maximum and minimum length of a field reaching a criterion value to a cutting plane ");
+    writeCommented(file, "Time");
+
+    forAll(fieldSet_, fieldi )
+    {
+        writeTabbed(file, "minLength(" + fieldSet_[fieldi] + ')');
+        writeTabbed(file, "maxLength(" + fieldSet_[fieldi] + ')');
+    }
+
+    file<< endl;
+
+}
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -59,16 +79,35 @@ Foam::functionObjects::minMaxLength::minMaxLength
     const dictionary& dict
 )
 :
+//    fvMeshFunctionObject(name, runTime, dict),
     fieldExpression(name, runTime, dict, dict.lookup("fieldName")),
+    logFiles(obr_, name),
     position(dict.lookup("position")),
     direction(dict.lookup("direction")),
-    criterion(readScalar(dict.lookup("criterion"))),
-    threshold(readScalar(dict.lookup("threshold"))),
-    ResultOutPut("minMaxLength")
+    ResultOutPut("minMaxLength"),
+    fieldSet_(dict.lookup("fields")),
+    criterion(fieldSet_.size()),
+    threshold(fieldSet_.size())
 {
     Info<<"criterion = "<<criterion<<endl;
     Info<<"threshold = "<<threshold<<endl;
-    ResultOutPut << "time" << ",minLength" << ",maxLength" << endl;
+
+
+//OFstream& file = this->file();
+//Istream& is();
+//const dictionaryEntry entry(dict.subDict("aa"), is);
+/*
+fieldName_ = entry.keyword();
+criterion[i] = readScalar(dict.lookup("criterion"))
+threshold[i] = entry.lookupOrDefault<scalar>("threshold", 0.01*criterion[i]);
+*/
+    forAll( fieldSet_, fieldi)
+    {
+        const word& fieldName = fieldSet_[fieldi];
+        criterion[fieldi] = readScalar(dict.subDict(fieldName).lookup("criterion"));
+        threshold[fieldi] = dict.lookupOrDefault<scalar>("threshold", 0.01*criterion[fieldi]);
+    }
+
 }
 
 
@@ -80,24 +119,41 @@ Foam::functionObjects::minMaxLength::~minMaxLength()
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-// useless:
-bool Foam::functionObjects::minMaxLength::clear(){return true;}
+bool Foam::functionObjects::minMaxLength::clear()
+{
+    return true;
+}
 
+bool Foam::functionObjects::minMaxLength::read(const dictionary&)
+{
+    return true;
+}
 
 bool Foam::functionObjects::minMaxLength::execute()
 {
-    if (foundObject<volScalarField>(fieldName_))
+    return true;
+}
+
+bool Foam::functionObjects::minMaxLength::write()
+{
+    logFiles::write();
+
+    if (Pstream::master()) writeTime(file());
+    Log << type() << " " << name() <<  " write:" << nl;
+
+    forAll(fieldSet_, fieldi)
     {
-        const volScalarField& field = lookupObject<volScalarField>(fieldName_);
-        const scalar field_max = max(field).value();
+        const word& fieldName = fieldSet_[fieldi];
+        const volScalarField& fieldValue = lookupObject<volScalarField>(fieldName);
+        const scalar field_max = max(fieldValue).value();
         Info << "field_max = " << field_max << endl;
         scalar maxLength = 0;
         scalar minLength = great;
-        if (field_max > threshold)
+        if (field_max > threshold[fieldi])
         {
-            forAll (field, cellI)
+            forAll (fieldValue, cellI)
             {
-                if (field[cellI] >= criterion)
+                if (fieldValue[cellI] >= criterion[fieldi])
                 {
                     vector raw = position - mesh_.C()[cellI];
                     scalar length = mag(raw&direction);
@@ -116,20 +172,17 @@ bool Foam::functionObjects::minMaxLength::execute()
         reduce(maxLength, maxOp<scalar>());
         reduce(minLength, minOp<scalar>());
 
-        Info << "maxLength = " << maxLength << endl;
-        Info << "minLength = " << minLength << endl;
-        ResultOutPut << mesh_.time().value() << "," << minLength << "," << maxLength << endl;
-    }
-    else
-    {
-        Info << "Sorry! I cannot found " << fieldName_ << endl;
-    }
+        file()<< tab << minLength << tab << maxLength;
 
-    return true;
-}
+        Log << "    min/max(" << fieldName << ") = "
+            << minLength << ' ' << maxLength;
 
-bool Foam::functionObjects::minMaxLength::write()
-{
+        Info << fieldName << "maxLength = " << maxLength << endl;
+        Info << fieldName << "minLength = " << minLength << endl;
+    }
+    if (Pstream::master()) file() << endl;
+    Log << endl;
+
     return true;
 }
 

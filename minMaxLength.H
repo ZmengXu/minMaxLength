@@ -25,10 +25,17 @@ Class
     Foam::functionObjects::minMaxLength
 
 Description
-    Calculates the natural minMaxLengtharithm of the specified scalar field.
+    Calculates the min and max distance between a cutting plane, determined by a position and a direction, to a criterion value of the specified scalar field.
 
-    Performs \f$ln(max(x, a))\f$ where \f$x\f$ is the field and \f$a\f$ an
-    optional clip to handle 0 or negative \f$x\f$.
+Usage
+    \table
+        Property     | Description             | Required    | Default value
+        type         | type name: fieldMinMax  | yes         |
+        log          | write min/max data to standard output | no | no
+        location     | write location of the min/max value | no | yes
+        mode         | calculation mode: magnitude or component | no | magnitude
+    \endtable
+    Output data is written to the file \<timeDir\>/fieldMinMax.dat
 
 See also
     Foam::functionObjects::fieldExpression
@@ -44,7 +51,7 @@ SourceFiles
 
 #include "fieldExpression.H"
 #include "fvCFD.H"
-
+#include "logFiles.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -58,21 +65,28 @@ namespace functionObjects
 
 class minMaxLength
 :
-    public fieldExpression
+//    public fvMeshFunctionObject,
+    public fieldExpression,
+    public logFiles
 {
     // Private Data
         vector position;
         vector direction;
-        //scalar OH_max;
-        scalar criterion;
-        scalar threshold;
+
         OFstream ResultOutPut;
+
+        //- Fields to assess min/max
+        wordList fieldSet_;
+
+        scalarList criterion;
+        scalarList threshold;
 
     // Private Member Functions
 
         //- Calculate the minMaxLength field and return true if successful
         virtual bool calc();
-
+        //- Output file header information
+        virtual void writeFileHeader(const label i);
 
 public:
 
@@ -98,7 +112,7 @@ public:
     // Member Functions
 
         //- Read the randomise data
-        //virtual bool read(const dictionary&);
+        virtual bool read(const dictionary&);
 
         //- currently does nothing
         virtual bool execute();
