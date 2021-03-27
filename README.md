@@ -13,3 +13,21 @@ minMaxLength1
     threshold       1e-5;
 }
 ```
+```
+    minMaxLength1
+    {
+        type minMaxLength;
+        libs ("libSJfieldFunctionObjects.so");
+        fieldName p;
+        fields
+        (
+            p
+            {
+                criterion       10000;
+                threshold       1000;
+            }
+        );
+        position        ( 0 0 0 );
+        direction       ( 0 0 1 );
+    }
+```
