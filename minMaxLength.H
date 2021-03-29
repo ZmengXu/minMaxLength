@@ -30,16 +30,33 @@ Description
 Usage
     \table
         Property     | Description             | Required    | Default value
-        type         | type name: fieldMinMax  | yes         |
-        log          | write min/max data to standard output | no | no
-        location     | write location of the min/max value | no | yes
-        mode         | calculation mode: magnitude or component | no | magnitude
+        type         | type name: minMaxLength  | yes         |
+        position     | The point on the cutting plane | yes | -
+        direction    | The normal vector of the cutting plane | yes | -        
+        criterion    | The criterion to determine the max and min length | yes | -
+        threshold    | When the max value of the processed fields is less than the threshold, skip the time step. | no | 0.01*criterion
     \endtable
-    Output data is written to the file \<timeDir\>/fieldMinMax.dat
+    Output data is written to the file \<timeDir\>/minMaxLength.dat
+    
+    This is an example:
+    
+    \verbatim
+    {
+        type minMaxLength;
+        libs ("libSJfieldFunctionObjects.so");
+        position        ( 0 0 0 );//The point on the cutting plane
+        direction       ( 0 0 1 );//The normal vector of the cutting plane
+        fields
+        (
+            p   //The fileds to be processed
+            {
+                criterion       10000; // The criterion to determine the max and min length
+                threshold       1000;  // When the max value of the processed fields is less than the threshold, skip the time step.
+            }
+        );
 
-See also
-    Foam::functionObjects::fieldExpression
-    Foam::functionObjects::fvMeshFunctionObject
+    }
+    \endverbatim
 
 SourceFiles
     minMaxLength.C
@@ -49,15 +66,64 @@ SourceFiles
 #ifndef functionObjects_minMaxLength_H
 #define functionObjects_minMaxLength_H
 
-#include "fieldExpression.H"
-#include "fvCFD.H"
+#include "fvMeshFunctionObject.H"
+#include "vector.H"
 #include "logFiles.H"
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
+
 namespace functionObjects
 {
+
+// Forward declaration of friend functions and operators
+class fieldItem;
+Istream& operator>>(Istream&, fieldItem&);
+
+/*---------------------------------------------------------------------------*\
+                          Class fieldItem Declaration
+\*---------------------------------------------------------------------------*/
+
+
+class fieldItem
+{
+    
+public:
+    
+    word fieldName_;
+    
+    scalar criterion_;
+    
+    scalar threshold_;
+
+    //- Construct null
+    fieldItem();
+
+    //- Destructor
+    ~fieldItem();
+
+    // Member Functions
+
+    // Access
+    //- Return const access to the field name
+    const word& fieldName() const
+    {
+        return fieldName_;
+    }
+    const scalar& criterion() const
+    {
+        return criterion_;
+    }
+    const scalar& threshold() const
+    {
+        return threshold_;
+    }
+    
+    // IOstream Operators
+    friend Istream& operator>>(Istream&, fieldItem&);
+};
 
 /*---------------------------------------------------------------------------*\
                           Class minMaxLength Declaration
@@ -65,26 +131,20 @@ namespace functionObjects
 
 class minMaxLength
 :
-//    public fvMeshFunctionObject,
-    public fieldExpression,
+    public fvMeshFunctionObject,
     public logFiles
 {
+
+private:
     // Private Data
-        vector position;
-        vector direction;
+        vector position_;
+        
+        vector direction_;
 
-        OFstream ResultOutPut;
-
-        //- Fields to assess min/max
-        wordList fieldSet_;
-
-        scalarList criterion;
-        scalarList threshold;
+        List<fieldItem> fieldItems_;
 
     // Private Member Functions
 
-        //- Calculate the minMaxLength field and return true if successful
-        virtual bool calc();
         //- Output file header information
         virtual void writeFileHeader(const label i);
 
